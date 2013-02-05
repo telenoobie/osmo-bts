@@ -57,3 +57,6 @@ int bts_model_oml_estab(struct gsm_bts *bts)
 
 int l1if_set_txpower(struct femtol1_hdl *fl1h, float tx_power)
 { return 0; }
+
+void bts_model_abis_close(struct gsm_bts *bts)
+{ }
