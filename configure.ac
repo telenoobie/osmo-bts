@@ -87,4 +87,5 @@ AC_OUTPUT(
     tests/sysmobts/Makefile
     tests/misc/Makefile
     tests/bursts/Makefile
+    tests/handover/Makefile
     Makefile)
