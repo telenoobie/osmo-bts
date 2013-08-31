@@ -155,6 +155,35 @@ static int l1sap_info_time_ind(struct gsm_bts_trx *trx,
 	return 0;
 }
 
+/* measurement information received from bts model */
+static int l1sap_info_meas_ind(struct gsm_bts_trx *trx,
+	struct osmo_phsap_prim *l1sap,
+	struct info_meas_ind_param *info_meas_ind)
+{
+	struct bts_ul_meas ulm;
+	struct gsm_lchan *lchan;
+
+	DEBUGP(DL1P, "MPH_INFO meas ind chan_nr=%02x\n",
+		info_meas_ind->chan_nr);
+
+	lchan = &trx->ts[L1SAP_CHAN2TS(info_meas_ind->chan_nr)]
+				.lchan[l1sap_chan2ss(info_meas_ind->chan_nr)];
+
+	/* in the GPRS case we are not interested in measurement
+	 * processing.  The PCU will take care of it */
+	if (lchan->type == GSM_LCHAN_PDTCH)
+		return 0;
+
+	memset(&ulm, 0, sizeof(ulm));
+	ulm.ta_offs_qbits = info_meas_ind->ta_offs_qbits;
+	ulm.ber10k = info_meas_ind->ber10k;
+	ulm.inv_rssi = info_meas_ind->inv_rssi;
+
+	lchan_new_ul_meas(lchan, &ulm);
+
+	return 0;
+}
+
 /* any L1 MPH_INFO indication prim recevied from bts model */
 static int l1sap_mph_info_ind(struct gsm_bts_trx *trx,
 	 struct osmo_phsap_prim *l1sap, struct mph_info_param *info)
@@ -164,6 +193,9 @@ static int l1sap_mph_info_ind(struct gsm_bts_trx *trx,
 	switch (info->type) {
 	case PRIM_INFO_TIME:
 		rc = l1sap_info_time_ind(trx, l1sap, &info->u.time_ind);
+		break;
+	case PRIM_INFO_MEAS:
+		rc = l1sap_info_meas_ind(trx, l1sap, &info->u.meas_ind);
 		break;
 	default:
 		LOGP(DL1P, LOGL_NOTICE, "unknown MPH_INFO ind type %d\n",
@@ -481,44 +513,37 @@ static void radio_link_timeout(struct gsm_lchan *lchan, int bad_frame)
 	}
 }
 
-static inline void check_for_first_ciphrd(struct gsm_lchan *lchan,
-					  uint8_t *data, int len,
-					  uint8_t chan_nr)
+static inline int check_for_first_ciphrd(struct gsm_lchan *lchan,
+					  uint8_t *data, int len)
 {
 	uint8_t n_s;
 
 	/* if this is the first valid message after enabling Rx
 	 * decryption, we have to enable Tx encryption */
-	if (lchan->ciph_state != LCHAN_CIPH_RX_CONF) {
-		printf("ciph_State\n");
-		return;
-	}
+	if (lchan->ciph_state != LCHAN_CIPH_RX_CONF)
+		return 0;
 
 	/* HACK: check if it's an I frame, in order to
 	 * ignore some still buffered/queued UI frames received
 	 * before decryption was enabled */
 	if (data[0] != 0x01)
-		return;
+		return 0;
 
 	if ((data[1] & 0x01) != 0)
-		return;
+		return 0;
 
 	n_s = data[1] >> 5;
 	if (lchan->ciph_ns != n_s)
-		return;
+		return 0;
 
-	lchan->ciph_state = LCHAN_CIPH_TXRX_REQ;
-
-	/* this check is only introduced to make the test work :/ */
-	if (lchan->ts && lchan->ts->trx)
-		l1sap_tx_ciph_req(lchan->ts->trx, chan_nr, 1, 0);
+	return 1;
 }
 
 /* public helper for the test */
-void bts_check_for_first_ciphrd(struct gsm_lchan *lchan,
-				uint8_t *data, int len, uint8_t chan_nr)
+int bts_check_for_first_ciphrd(struct gsm_lchan *lchan,
+				uint8_t *data, int len)
 {
-	return check_for_first_ciphrd(lchan, data, len, chan_nr);
+	return check_for_first_ciphrd(lchan, data, len);
 }
 
 /* DATA received from bts model */
@@ -597,7 +622,8 @@ static int l1sap_ph_data_ind(struct gsm_bts_trx *trx,
 	} else
 		le = &lchan->lapdm_ch.lapdm_dcch;
 
-	check_for_first_ciphrd(lchan, data, len, chan_nr);
+	if (check_for_first_ciphrd(lchan, data, len))
+		l1sap_tx_ciph_req(lchan->ts->trx, chan_nr, 0, 1);
 
 	/* SDCCH, SACCH and FACCH all go to LAPDm */
 	msgb_pull(msg, (msg->l2h - msg->data));
