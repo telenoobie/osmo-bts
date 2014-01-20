@@ -18,7 +18,7 @@ enum {
 
 void abis_init(struct gsm_bts *bts);
 struct e1inp_line *abis_open(struct gsm_bts *bts, const char *dst_host,
-			     const char *model_name);
+			     const char *model_name, int trx_num);
 
 
 int abis_oml_sendmsg(struct msgb *msg);
