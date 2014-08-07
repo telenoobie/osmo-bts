@@ -498,14 +498,6 @@ void bts_model_config_write_trx(struct vty *vty, struct gsm_bts_trx *trx)
 			trx->pa.step_size, VTY_NEWLINE);
 	vty_out(vty, "  power-amplifier step-interval %d%s",
 			trx->pa.step_interval, VTY_NEWLINE);
-
-	for (i = 0; i < 32; i++) {
-		if (fl1h->gsmtap_sapi_mask & (1 << i)) {
-			const char *name = get_value_string(femtobts_l1sapi_names, i);
-			vty_out(vty, "  gsmtap-sapi %s%s", osmo_str_tolower(name),
-				VTY_NEWLINE);
-		}
-	}
 }
 
 int bts_model_vty_init(struct gsm_bts *bts)
