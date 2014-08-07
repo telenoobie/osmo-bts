@@ -498,7 +498,7 @@ static int l1sap_ph_rts_ind(struct gsm_bts_trx *trx,
 		if (rc < 0) {
 			if (L1SAP_IS_LINK_SACCH(link_id)) {
 				/* No SACCH data from LAPDM pending, send SACCH filling */
-				uint8_t *si = lchan_sacch_get(lchan, &g_time);
+				uint8_t *si = lchan_sacch_get(lchan);
 				if (si) {
 					/* The +2 is empty space where the DSP inserts the L1 hdr */
 					memcpy(p + 2, si, GSM_MACBLOCK_LEN - 2);
