@@ -68,4 +68,6 @@ extern uint8_t gsmtap_sapi_acch;
 
 #define msgb_l1sap_prim(msg) ((struct osmo_phsap_prim *)(msg)->l1h)
 
+void bts_check_for_first_ciphrd(struct gsm_lchan *lchan,
+				uint8_t *data, int len, uint8_t chan_nr);
 #endif /* L1SAP_H */
